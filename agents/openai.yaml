@@ -1,0 +1,5 @@
+interface:
+  display_name: "DeepSeek Peak Guard"
+  short_description: "Block accidental DeepSeek API calls during peak hours in Codex"
+  default_prompt: "Use $deepseek-peak-guard to check whether this DeepSeek API work should wait for off-peak pricing."
+

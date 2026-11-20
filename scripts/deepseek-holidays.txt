@@ -1,0 +1,3 @@
+# Add one statutory-holiday date per line in YYYY-MM-DD format.
+# Weekend detection is automatic. Update this list when China's official
+# holiday calendar for a new year is published.
