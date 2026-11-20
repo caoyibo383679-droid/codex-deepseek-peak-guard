@@ -1,42 +1,43 @@
-# DeepSeek Peak Guard for Codex
+# DeepSeek 错峰守门
 
-An unofficial Codex skill and `UserPromptSubmit` hook that prevents accidental
-DeepSeek API usage during peak-price hours.
+[简体中文](README.md) | [English](README.en.md)
 
-The guard runs locally before the model request. During a peak window, Codex
-shows a confirmation dialog before continuing. Choosing **No**, or closing the
-dialog, cancels the request without sending it to DeepSeek.
+一个非官方的 Codex Skill 与 `UserPromptSubmit` Hook，用于在 DeepSeek 高峰
+计费时段阻止误触发的 API 请求。
 
-## Features
+Hook 会在模型请求发出前于本地运行。进入高峰时段后，Codex 会先显示确认窗口：
+选择“否”或关闭窗口，本次请求会被取消，不会发送给 DeepSeek。
 
-- Runs before the billable model request
-- Uses Beijing time and DeepSeek's weekday peak windows
-- Allows all requests during weekends and configured statutory holidays
-- Skips non-DeepSeek models
-- Handles daylight-independent China Standard Time conversion
-- Fails closed during peak hours if the guard cannot complete
-- Uses JSON Unicode escapes so Windows PowerShell cannot corrupt Chinese text
-- Includes no API key, account data, or model credentials
+## 功能
 
-## Requirements
+- 在计费请求发出前拦截
+- 使用北京时间判断 DeepSeek 工作日高峰时段
+- 周末和法定节假日全天放行
+- 自动跳过非 DeepSeek 模型
+- 非高峰期直接放行，不读取或解析消息内容
+- 高峰期脚本异常时采取保守策略，停止本次请求
+- 使用 JSON Unicode 转义，避免 Windows PowerShell 造成中文乱码
+- 不包含 API Key、账号信息或模型凭据
 
-- Codex with `UserPromptSubmit` hook support
-- Windows PowerShell 5.1 or later
-- The DeepSeek model provider configured in Codex
+## 环境要求
 
-> DeepSeek's pricing schedule can change. This project is not affiliated with
-> DeepSeek or OpenAI. Verify the provider's current pricing documentation.
+- 支持 `UserPromptSubmit` Hook 的 Codex
+- Windows PowerShell 5.1 或更高版本
+- 已在 Codex 中配置 DeepSeek 模型提供商
 
-## Install
+> DeepSeek 的价格和时段可能变化。本项目与 DeepSeek、OpenAI 均无隶属关系，
+> 使用前请核对服务商最新的价格文档。
 
-1. Copy this repository to:
+## 安装
+
+1. 将仓库复制到：
 
    ```text
    %USERPROFILE%\.codex\skills\deepseek-peak-guard
    ```
 
-2. Add the following to `%USERPROFILE%\.codex\config.toml` and replace
-   `YOUR_USERNAME` with your Windows username:
+2. 在 `%USERPROFILE%\.codex\config.toml` 中加入以下内容，并将
+   `YOUR_USERNAME` 替换为你的 Windows 用户名：
 
    ```toml
    [[skills.config]]
@@ -50,42 +51,41 @@ dialog, cancels the request without sending it to DeepSeek.
    type = "command"
    command = 'powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "C:\Users\YOUR_USERNAME\.codex\skills\deepseek-peak-guard\scripts\guard.ps1"'
    timeout = 600
-   statusMessage = "Checking DeepSeek peak pricing"
+   statusMessage = "检查 DeepSeek 高峰期"
    ```
 
-3. Restart Codex.
+3. 重启 Codex。
 
-4. Approve the hook when Codex asks for hook trust.
+4. Codex 询问是否信任 Hook 时选择允许。
 
-Current Codex versions use the `UserPromptSubmit` event name exactly. The
-snake-case form `user_prompt_submit` is not equivalent.
+当前 Codex 版本要求事件名严格写为 `UserPromptSubmit`。全小写写法
+`user_prompt_submit` 不会被识别为同一个事件。
 
-## How it works
+## 工作方式
 
-The hook receives a JSON object containing the active model and prompt. It
-checks Beijing time before parsing the prompt:
+Hook 接收的 JSON 中包含当前模型和用户消息。脚本会先判断北京时间：
 
-1. Off-peak: exit immediately and let the request proceed.
-2. Peak: check the model, show a confirmation dialog, and block on **No**.
-3. Failure during peak: fail closed and cancel the request.
+1. 非高峰期：立即放行，不解析消息。
+2. 高峰期：检查模型，显示确认窗口。
+3. 高峰期脚本异常：取消请求，避免意外按高峰价计费。
 
-The guard does not add `additionalContext`, so normal successful requests do
-not receive extra model tokens from the hook.
+本 Hook 不添加 `additionalContext`，因此正常任务不会因为守门逻辑额外消耗
+输入 Token。
 
-## Holiday calendar
+## 法定节假日
 
-Add one date per line in `scripts/deepseek-holidays.txt`:
+在 `scripts/deepseek-holidays.txt` 中每行添加一个日期：
 
 ```text
 2026-10-01
 2026-10-02
 ```
 
-Lines beginning with `#` are ignored. Weekends are detected automatically.
+以 `#` 开头的行会被忽略，周末会自动判断。
 
-## Manual tests
+## 手动测试
 
-Force the peak branch and return a block response without opening a dialog:
+强制进入高峰期分支，并直接返回拦截结果：
 
 ```powershell
 $inputJson = '{"model":"deepseek-flash","prompt":"test"}'
@@ -93,8 +93,7 @@ $inputJson | powershell.exe -NoProfile -STA -ExecutionPolicy Bypass `
   -File .\scripts\guard.ps1 -ForcePeak -TestDecision Deny
 ```
 
-During off-peak hours, the command below should exit with code `0` and produce
-no output:
+非高峰期执行下面的命令时，应当退出码为 `0` 且没有输出：
 
 ```powershell
 $inputJson = '{"model":"deepseek-flash","prompt":"test"}'
@@ -102,12 +101,11 @@ $inputJson | powershell.exe -NoProfile -STA -ExecutionPolicy Bypass `
   -File .\scripts\guard.ps1
 ```
 
-## Security
+## 安全说明
 
-Do not commit `%USERPROFILE%\.codex\config.toml`, API keys, auth files, session
-logs, or local backups. This repository's `.gitignore` excludes common examples,
-but always inspect staged files before publishing.
+不要提交 `%USERPROFILE%\.codex\config.toml`、API Key、认证文件、会话日志
+或本地备份。`.gitignore` 已排除常见敏感文件，但提交前仍应检查暂存内容。
 
-## License
+## 许可证
 
 MIT
